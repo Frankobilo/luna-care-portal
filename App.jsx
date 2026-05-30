@@ -444,10 +444,21 @@ function Dashboard() {
   const [selectedQ, setSelectedQ] = useState(null)
   const [response, setResponse] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [threadReply, setThreadReply] = useState("")
   const [ok, setOk] = useState("")
   const [isOnline, setIsOnline] = useState(doctor?.is_online||false)
 
   useEffect(()=>{ loadQuestions() },[tab])
+
+  // Realtime — update selected question when patient sends follow-up
+  useEffect(()=>{
+    if(!selectedQ)return
+    const channel = supabase.channel(`portal-q-${selectedQ.id}`)
+      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"questions",filter:`id=eq.${selectedQ.id}`},
+        (payload)=>{ setSelectedQ(prev=>({...prev,...payload.new})); loadQuestions() }
+      ).subscribe()
+    return()=>supabase.removeChannel(channel)
+  },[selectedQ?.id])
 
   const loadQuestions = async () => {
     setLoading(true)
@@ -467,9 +478,9 @@ function Dashboard() {
       professional_response: response.trim(),
       status: "professional_answered",
       assigned_doctor_id: doctor?.id,
-      answered_at: new Date().toISOString()
+      answered_at: new Date().toISOString(),
+      last_activity_at: new Date().toISOString(),
     }).eq("id",selectedQ.id)
-    // Update doctor earnings
     await supabase.from("doctors").update({
       total_answered: (doctor?.total_answered||0)+1,
       total_earnings: (doctor?.total_earnings||0)+2000,
@@ -480,6 +491,24 @@ function Dashboard() {
     setResponse("")
     setTimeout(()=>setOk(""),3000)
     loadQuestions()
+    setSubmitting(false)
+  }
+
+  const submitThreadReply = async () => {
+    if(!threadReply.trim()||!selectedQ)return
+    setSubmitting(true)
+    const messages = Array.isArray(selectedQ.thread_messages) ? selectedQ.thread_messages : []
+    const newMsg = { role:"doctor", content:threadReply.trim(), created_at:new Date().toISOString() }
+    const updated = [...messages, newMsg]
+    await supabase.from("questions").update({
+      thread_messages: updated,
+      last_activity_at: new Date().toISOString(),
+      thread_closed_at: null,
+    }).eq("id",selectedQ.id)
+    setSelectedQ(prev=>({...prev, thread_messages:updated, last_activity_at:new Date().toISOString(), thread_closed_at:null}))
+    setThreadReply("")
+    setOk("Reply sent!")
+    setTimeout(()=>setOk(""),3000)
     setSubmitting(false)
   }
 
@@ -628,37 +657,90 @@ function Dashboard() {
 
         {/* Response panel */}
         {selectedQ && tab!=="profile" && (
-          <div style={{width:380,background:C.surface,borderLeft:`1px solid ${C.border}`,display:"flex",flexDirection:"column",flexShrink:0}}>
-            <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div style={{fontFamily:F.u,fontSize:12,fontWeight:600,color:C.ink}}>Respond to Question</div>
-              <button onClick={()=>setSelectedQ(null)} style={{color:C.inkSoft,fontSize:18,lineHeight:1}}>×</button>
+          <div style={{width:400,background:C.surface,borderLeft:`1px solid ${C.border}`,display:"flex",flexDirection:"column",flexShrink:0}}>
+            <div style={{padding:"14px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div style={{fontFamily:F.u,fontSize:12,fontWeight:600,color:C.ink}}>Patient Conversation</div>
+              <button onClick={()=>setSelectedQ(null)} style={{color:C.inkSoft,fontSize:20,lineHeight:1}}>×</button>
             </div>
-            <div style={{flex:1,overflowY:"auto",padding:"16px 20px"}}>
-              <div style={{background:C.card,borderRadius:12,padding:"14px",marginBottom:16}}>
-                <div style={{fontFamily:F.u,fontSize:10,fontWeight:700,color:C.teal,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>Patient Question</div>
-                <p style={{fontFamily:F.u,fontSize:13,color:C.inkMid,lineHeight:1.6}}>{selectedQ.content}</p>
+            <div style={{flex:1,overflowY:"auto",padding:"14px 18px"}}>
+
+              {/* Original question */}
+              <div style={{background:C.card,borderRadius:12,padding:"12px",marginBottom:10}}>
+                <div style={{fontFamily:F.u,fontSize:9,fontWeight:700,color:C.teal,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Patient Question</div>
+                <p style={{fontFamily:F.u,fontSize:13,color:C.inkMid,lineHeight:1.6,margin:0}}>{selectedQ.content}</p>
               </div>
+
+              {/* AI response */}
               {selectedQ.ai_response && (
-                <div style={{background:C.tealSoft,border:`1px solid ${C.tealMid}`,borderRadius:12,padding:"14px",marginBottom:16}}>
-                  <div style={{fontFamily:F.u,fontSize:10,fontWeight:700,color:C.teal,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>AI Provisional Response</div>
-                  <p style={{fontFamily:F.u,fontSize:12,color:C.inkMid,lineHeight:1.6}}>{selectedQ.ai_response}</p>
+                <div style={{background:C.tealSoft,border:`1px solid ${C.tealMid}`,borderRadius:12,padding:"12px",marginBottom:10}}>
+                  <div style={{fontFamily:F.u,fontSize:9,fontWeight:700,color:C.teal,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>AI Provisional Response</div>
+                  <p style={{fontFamily:F.u,fontSize:12,color:C.inkMid,lineHeight:1.6,margin:0}}>{selectedQ.ai_response}</p>
                 </div>
               )}
-              <div style={{marginBottom:12}}>
-                <label style={{display:"block",fontFamily:F.u,fontSize:10,fontWeight:600,color:C.inkSoft,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Your Professional Response</label>
-                <div style={{background:C.card,border:`1px solid ${response?C.tealMid:C.border}`,borderRadius:12,padding:"14px",transition:"border-color .2s"}}>
-                  <textarea rows={8} placeholder="Provide your professional medical response here. Remember: patient identity is anonymous." value={response} onChange={e=>setResponse(e.target.value)}
+
+              {/* Thread messages (follow-ups) */}
+              {Array.isArray(selectedQ.thread_messages) && selectedQ.thread_messages.length>0 && (
+                <div style={{marginBottom:10}}>
+                  <div style={{fontFamily:F.u,fontSize:9,fontWeight:700,color:C.inkSoft,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8,textAlign:"center"}}>— Follow-up conversation —</div>
+                  {selectedQ.thread_messages.map((msg,i)=>(
+                    <div key={i} style={{marginBottom:8,display:"flex",flexDirection:"column",alignItems:msg.role==="patient"?"flex-end":"flex-start"}}>
+                      <div style={{maxWidth:"88%",background:msg.role==="patient"?"#2A3545":msg.role==="ai"?"rgba(91,168,160,0.15)":"rgba(90,158,111,0.15)",borderRadius:msg.role==="patient"?"12px 12px 3px 12px":"12px 12px 12px 3px",padding:"10px 12px"}}>
+                        {msg.role!=="patient" && (
+                          <div style={{fontFamily:F.u,fontSize:9,fontWeight:700,color:msg.role==="ai"?C.teal:C.sage,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>
+                            {msg.role==="ai"?"AI":"Doctor"}
+                          </div>
+                        )}
+                        <p style={{fontFamily:F.u,fontSize:12,color:msg.role==="patient"?"#C8D8E8":C.inkMid,lineHeight:1.55,margin:0}}>{msg.content}</p>
+                        <div style={{fontFamily:F.u,fontSize:9,color:C.inkSoft,marginTop:4,textAlign:msg.role==="patient"?"right":"left"}}>
+                          {new Date(msg.created_at).toLocaleTimeString("en-NG",{hour:"2-digit",minute:"2-digit"})}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Doctor's response input */}
+              <div style={{marginBottom:10}}>
+                <label style={{display:"block",fontFamily:F.u,fontSize:9,fontWeight:700,color:C.inkSoft,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Your Professional Response</label>
+                <div style={{background:C.card,border:`1px solid ${response?C.tealMid:C.border}`,borderRadius:12,padding:"12px",transition:"border-color .2s"}}>
+                  <textarea rows={6} placeholder="Provide your professional response. Patient identity is anonymous." value={response} onChange={e=>setResponse(e.target.value)}
                     style={{width:"100%",fontFamily:F.u,fontSize:13,color:C.ink,lineHeight:1.7,background:"transparent"}}
                     disabled={selectedQ.status==="professional_answered"}/>
                 </div>
               </div>
+
               {selectedQ.status==="professional_answered" ? (
-                <div style={{background:C.greenSoft,border:`1px solid ${C.green}30`,borderRadius:10,padding:"12px",textAlign:"center"}}>
+                <div style={{background:C.greenSoft,border:`1px solid ${C.green}30`,borderRadius:10,padding:"12px",textAlign:"center",marginBottom:12}}>
                   <span style={{fontFamily:F.u,fontSize:12,color:C.green,fontWeight:600}}>✓ Already answered by you</span>
                 </div>
               ) : (
                 <Btn label={submitting?"Submitting…":"Submit Response"} onClick={submitResponse} disabled={!response.trim()} loading={submitting} bg={C.teal}/>
               )}
+
+              {/* Thread reply — always available after question has any response */}
+              {(selectedQ.status==="professional_answered"||selectedQ.status==="ai_answered") && (
+                <div style={{marginTop:14,borderTop:`1px solid ${C.border}`,paddingTop:14}}>
+                  <label style={{display:"block",fontFamily:F.u,fontSize:9,fontWeight:700,color:C.teal,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Reply to follow-up</label>
+                  <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
+                    <div style={{flex:1,background:C.card,border:`1px solid ${threadReply?C.tealMid:C.border}`,borderRadius:12,padding:"10px 12px",transition:"border-color .2s"}}>
+                      <textarea rows={3} placeholder="Reply to the patient's follow-up…" value={threadReply} onChange={e=>setThreadReply(e.target.value)}
+                        onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey&&threadReply.trim()){e.preventDefault();submitThreadReply()}}}
+                        style={{width:"100%",fontFamily:F.u,fontSize:13,color:C.ink,lineHeight:1.6,background:"transparent"}}/>
+                    </div>
+                    <button onClick={submitThreadReply} disabled={!threadReply.trim()||submitting}
+                      style={{width:40,height:40,borderRadius:11,background:threadReply.trim()&&!submitting?C.teal:C.border,display:"flex",alignItems:"center",justifyContent:"center",transition:"all .2s",flexShrink:0}}>
+                      {submitting?<div className="spin" style={{width:14,height:14,borderRadius:"50%",border:"2px solid rgba(255,255,255,0.3)",borderTopColor:"#fff"}}/>
+                      :<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z" stroke="#0F1117" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    </button>
+                  </div>
+                  <div style={{fontFamily:F.u,fontSize:10,color:C.inkSoft,marginTop:4}}>Press Enter to send</div>
+                </div>
+              )}
+
+              {ok && <div style={{background:C.greenSoft,border:`1px solid ${C.green}30`,borderRadius:10,padding:"10px",textAlign:"center",marginTop:10}}>
+                <span style={{fontFamily:F.u,fontSize:12,color:C.green,fontWeight:600}}>{ok}</span>
+              </div>}
             </div>
           </div>
         )}
