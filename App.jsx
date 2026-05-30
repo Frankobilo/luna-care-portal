@@ -3,15 +3,16 @@ import { supabase } from "./supabase.js"
 
 /* ── TOKENS ── */
 const C = {
-  bg:"#0F1117", surface:"#161920", card:"#1C1F2A", border:"#252836",
-  borderLight:"#2E3245", ink:"#E8E4DE", inkMid:"#9B96A0", inkSoft:"#5A5668",
-  teal:"#5BA8A0", tealSoft:"rgba(91,168,160,0.12)", tealMid:"rgba(91,168,160,0.25)",
-  rose:"#C9837A", roseSoft:"rgba(201,131,122,0.12)",
-  sage:"#7A9E8E", sageSoft:"rgba(122,158,142,0.12)",
-  gold:"#D4A853", goldSoft:"rgba(212,168,83,0.12)",
-  warn:"#D97B4F", warnSoft:"rgba(217,123,79,0.12)",
-  error:"#E05252", errorSoft:"rgba(224,82,82,0.12)",
-  green:"#5A9E6F", greenSoft:"rgba(90,158,111,0.12)",
+  bg:"#FAFAF8", surface:"#FFFFFF", card:"#F5F3F0", border:"#EBEBEB",
+  borderLight:"#E0DCDA", ink:"#1A1814", inkMid:"#6B6560", inkSoft:"#A8A29E",
+  teal:"#5BA8A0", tealSoft:"#EAF4F3", tealMid:"#B2D8D4",
+  rose:"#C9837A", roseSoft:"#F5EDEB", roseMid:"#E8C4BF",
+  sage:"#7A9E8E", sageSoft:"#EBF2EE", sageMid:"#BDD5CB",
+  sand:"#D4B896", sandSoft:"#FAF5EF", sandMid:"#EDE0D0",
+  gold:"#C8A96E", goldSoft:"#FAF3E8",
+  warn:"#D97B4F", warnSoft:"#FBF0EB",
+  error:"#C0392B", errorSoft:"#FDEBE8",
+  green:"#5A9E6F", greenSoft:"#EAF4EE",
 }
 const F = { d:"'Cormorant Garant',serif", u:"'Outfit',sans-serif" }
 
@@ -138,41 +139,167 @@ const Loader = ({msg="Loading…"}) => (
 
 /* ════════ WELCOME ════════ */
 function Welcome({onRegister, onLogin}) {
-  return (
-    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 24px",background:`radial-gradient(ellipse at 20% 50%, ${C.tealSoft} 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, rgba(122,158,142,0.08) 0%, transparent 50%), ${C.bg}`}}>
-      <div className="fu" style={{maxWidth:480,width:"100%"}}>
-        <div style={{textAlign:"center",marginBottom:48}}>
-          <div style={{width:80,height:80,borderRadius:"50%",background:C.tealSoft,border:`1px solid ${C.tealMid}`,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 24px"}}>
-            <Moon s={36}/>
-          </div>
-          <div style={{fontFamily:F.d,fontSize:42,fontWeight:600,color:C.ink,lineHeight:1.1,marginBottom:8}}>Luna Care</div>
-          <div style={{fontFamily:F.u,fontSize:12,fontWeight:600,letterSpacing:"0.15em",textTransform:"uppercase",color:C.teal,marginBottom:16}}>Professional Portal</div>
-          <p style={{fontFamily:F.u,fontSize:14,color:C.inkMid,lineHeight:1.7,maxWidth:360,margin:"0 auto"}}>
-            Join Nigeria's most trusted anonymous reproductive health platform. Help patients privately and professionally.
-          </p>
-        </div>
+  useEffect(()=>{
+    // Scroll reveal
+    const obs = new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('rv-visible') })
+    },{threshold:0.1,rootMargin:'0px 0px -30px 0px'})
+    document.querySelectorAll('.rv').forEach(el=>obs.observe(el))
+    return()=>obs.disconnect()
+  },[])
 
-        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:20,padding:"32px",marginBottom:16}}>
-          {[
-            {icon:<Shield s={14} c={C.teal}/>, text:"Patient identities stay completely anonymous"},
-            {icon:<Check s={14} c={C.green}/>, text:"MDCN-verified professionals only"},
-            {icon:<Star s={14} c={C.gold}/>, text:"Earn per question answered — from ₦2,000"},
-          ].map((item,i) => (
-            <div key={i} className={`fu d${i+1}`} style={{display:"flex",alignItems:"center",gap:12,marginBottom:i<2?16:0}}>
-              <div style={{width:32,height:32,borderRadius:9,background:C.card,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{item.icon}</div>
-              <span style={{fontFamily:F.u,fontSize:13,color:C.inkMid,lineHeight:1.4}}>{item.text}</span>
+  const steps=[
+    {n:"01",title:"Apply & get verified",desc:"Submit your MDCN number. We review and approve within 48 hours."},
+    {n:"02",title:"Set your availability",desc:"Toggle online when ready. Work from anywhere, any time."},
+    {n:"03",title:"Receive questions",desc:"Get notified when patients submit questions in your specialty."},
+    {n:"04",title:"Respond & earn",desc:"Write professional responses and earn ₦2,000+ per question."},
+  ]
+  const why=[
+    {icon:"🔒",title:"Full patient anonymity",desc:"Patient names are never revealed. Focus on the medical question."},
+    {icon:"📱",title:"Works on any device",desc:"Fully mobile-optimized. Answer questions between ward rounds."},
+    {icon:"⚡",title:"AI does the first pass",desc:"AI provides a provisional response. You add your expertise."},
+    {icon:"🩺",title:"Specialized topics",desc:"Menstrual health, pregnancy, contraception, fertility, STIs and more."},
+    {icon:"💬",title:"Threaded conversations",desc:"Patients can follow up within 24 hours for complete consultations."},
+    {icon:"💰",title:"Monthly payouts",desc:"Earnings tracked in real-time, paid automatically every month."},
+  ]
+
+  return(
+    <div style={{minHeight:"100vh",background:C.bg,overflowX:"hidden"}}>
+      <style>{`
+        .rv{opacity:0;transform:translateY(22px);transition:all 0.55s ease;}
+        .rv-visible{opacity:1;transform:translateY(0);}
+        .wl-step{background:${C.card};border:1px solid ${C.border};border-radius:18px;padding:24px;transition:all .3s;position:relative;overflow:hidden;}
+        .wl-step::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,${C.teal},transparent);opacity:0;transition:opacity .3s;}
+        .wl-step:hover{border-color:${C.tealMid};transform:translateY(-3px);box-shadow:0 8px 24px rgba(91,168,160,0.1);}
+        .wl-step:hover::before{opacity:1;}
+        .wl-why{background:${C.card};border:1px solid ${C.border};border-radius:16px;padding:20px;display:flex;gap:14px;align-items:flex-start;transition:all .3s;}
+        .wl-why:hover{border-color:${C.tealMid};background:${C.tealSoft};}
+      `}</style>
+
+      {/* Orbs */}
+      <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0,overflow:"hidden"}}>
+        <div style={{position:"absolute",width:500,height:500,borderRadius:"50%",background:C.teal,filter:"blur(140px)",opacity:0.06,top:-200,left:-200}}/>
+        <div style={{position:"absolute",width:400,height:400,borderRadius:"50%",background:C.sage,filter:"blur(140px)",opacity:0.05,bottom:100,right:-100}}/>
+      </div>
+
+      {/* Nav */}
+      <div style={{position:"sticky",top:0,padding:"16px 32px",display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(250,250,248,0.92)",backdropFilter:"blur(20px)",borderBottom:`1px solid rgba(255,255,255,0.04)`,zIndex:100}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{width:32,height:32,borderRadius:9,background:C.tealSoft,border:`1px solid ${C.tealMid}`,display:"flex",alignItems:"center",justifyContent:"center"}}><Moon s={16}/></div>
+          <span style={{fontFamily:F.d,fontSize:20,fontWeight:600,color:C.ink}}>Luna Care</span>
+          <span style={{fontFamily:F.u,fontSize:9,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:C.teal,background:C.tealSoft,border:`1px solid ${C.tealMid}`,padding:"3px 8px",borderRadius:99}}>Professionals</span>
+        </div>
+        <div style={{display:"flex",gap:12}}>
+          <button onClick={onLogin} style={{padding:"9px 18px",borderRadius:10,border:`1px solid ${C.border}`,background:"transparent",color:C.inkMid,fontFamily:F.u,fontSize:13,fontWeight:500,cursor:"pointer"}}>Sign in</button>
+          <button onClick={onRegister} style={{padding:"9px 18px",borderRadius:10,background:C.teal,color:"#080B10",fontFamily:F.u,fontSize:13,fontWeight:600,cursor:"pointer",border:"none"}}>Apply now →</button>
+        </div>
+      </div>
+
+      {/* Hero */}
+      <div style={{minHeight:"90vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"80px 24px 60px",position:"relative",zIndex:1}}>
+        <div className="fu" style={{display:"inline-flex",alignItems:"center",gap:7,fontFamily:F.u,fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:C.teal,background:C.tealSoft,border:`1px solid ${C.tealMid}`,padding:"5px 14px",borderRadius:99,marginBottom:28}}>
+          <Shield s={11} c={C.teal}/> MDCN-Verified Professionals Only
+        </div>
+        <h1 className="fu d1" style={{fontFamily:F.d,fontSize:"clamp(48px,8vw,88px)",fontWeight:600,lineHeight:1.0,color:C.ink,marginBottom:20}}>
+          Help patients.<br/><span style={{fontStyle:"italic",color:C.teal}}>Earn income.</span><br/>Work anywhere.
+        </h1>
+        <p className="fu d2" style={{fontFamily:F.u,fontSize:17,fontWeight:300,color:C.inkMid,lineHeight:1.7,maxWidth:540,marginBottom:40}}>
+          Join Luna Care's network of verified Nigerian healthcare professionals. Answer anonymous reproductive health questions on your schedule.
+        </p>
+        <div className="fu d3" style={{display:"flex",gap:14,justifyContent:"center",flexWrap:"wrap",marginBottom:64}}>
+          <button onClick={onRegister} style={{padding:"15px 34px",borderRadius:13,background:C.teal,color:"#080B10",fontFamily:F.u,fontSize:15,fontWeight:600,cursor:"pointer",border:"none",display:"flex",alignItems:"center",gap:8}}>
+            Apply as a professional <span>→</span>
+          </button>
+          <button onClick={onLogin} style={{padding:"15px 34px",borderRadius:13,border:`1px solid ${C.border}`,background:"transparent",color:C.inkMid,fontFamily:F.u,fontSize:15,fontWeight:500,cursor:"pointer"}}>
+            Sign in to portal
+          </button>
+        </div>
+        {/* Stats */}
+        <div className="fu d4" style={{display:"flex",background:C.surface,border:`1px solid ${C.border}`,borderRadius:18,overflow:"hidden",maxWidth:600,width:"100%"}}>
+          {[["₦2,000+","Per question answered"],["48h","Application review"],["100%","Patient anonymity"]].map(([n,l],i)=>(
+            <div key={i} style={{flex:1,padding:"20px 24px",textAlign:"center",borderRight:i<2?`1px solid ${C.border}`:"none"}}>
+              <div style={{fontFamily:F.d,fontSize:32,fontWeight:600,color:C.teal,lineHeight:1,marginBottom:3}}>{n}</div>
+              <div style={{fontFamily:F.u,fontSize:10,color:C.inkSoft}}>{l}</div>
             </div>
           ))}
         </div>
+      </div>
 
-        <div className="fu d4" style={{display:"flex",flexDirection:"column",gap:12}}>
-          <Btn label="Apply as a professional →" onClick={onRegister} bg={C.teal}/>
-          <GhostBtn label="Sign in to my account" onClick={onLogin}/>
+      {/* How it works */}
+      <div style={{padding:"80px 24px",maxWidth:1000,margin:"0 auto",position:"relative",zIndex:1}}>
+        <div className="rv" style={{marginBottom:40}}>
+          <div style={{fontFamily:F.u,fontSize:10,fontWeight:700,letterSpacing:"0.15em",textTransform:"uppercase",color:C.teal,marginBottom:12}}>How it works</div>
+          <div style={{fontFamily:F.d,fontSize:"clamp(32px,5vw,50px)",fontWeight:600,color:C.ink,lineHeight:1.1}}>Simple. <span style={{fontStyle:"italic",color:C.teal}}>Flexible.</span> Impactful.</div>
         </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:14}}>
+          {steps.map((s,i)=>(
+            <div key={i} className={`wl-step rv`}>
+              <div style={{fontFamily:F.d,fontSize:48,fontWeight:300,color:C.border,lineHeight:1,marginBottom:14}}>{s.n}</div>
+              <div style={{fontFamily:F.d,fontSize:20,fontWeight:600,color:C.ink,marginBottom:7}}>{s.title}</div>
+              <div style={{fontFamily:F.u,fontSize:12,color:C.inkMid,lineHeight:1.6}}>{s.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
 
-        <p style={{fontFamily:F.u,fontSize:11,color:C.inkSoft,textAlign:"center",marginTop:24,lineHeight:1.6}}>
-          All applications are reviewed by the Luna Care team. MDCN number required.
-        </p>
+      {/* Earnings */}
+      <div style={{padding:"80px 24px",maxWidth:1000,margin:"0 auto",position:"relative",zIndex:1}}>
+        <div className="rv" style={{marginBottom:40}}>
+          <div style={{fontFamily:F.u,fontSize:10,fontWeight:700,letterSpacing:"0.15em",textTransform:"uppercase",color:C.teal,marginBottom:12}}>Earnings</div>
+          <div style={{fontFamily:F.d,fontSize:"clamp(32px,5vw,50px)",fontWeight:600,color:C.ink,lineHeight:1.1}}>Your expertise, <span style={{fontStyle:"italic",color:C.teal}}>properly valued.</span></div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:14}}>
+          {[
+            {amount:"₦2,000+",label:"Per text question",desc:"Answer at your own pace. Top doctors answer 20–40 questions per week with no cap on earnings."},
+            {amount:"₦5,000",label:"Per telehealth session",desc:"30-minute video consultations with patients who need face-to-face care."},
+            {amount:"Monthly",label:"Automatic payouts",desc:"Earnings tracked in real-time on your dashboard, paid to your bank account every month."},
+          ].map((e,i)=>(
+            <div key={i} className="rv" style={{background:i===0?`linear-gradient(135deg,${C.tealSoft},rgba(122,158,142,0.05))`:C.card,border:`1px solid ${i===0?C.tealMid:C.border}`,borderRadius:18,padding:28}}>
+              <div style={{fontFamily:F.d,fontSize:44,fontWeight:600,color:C.gold,lineHeight:1,marginBottom:5}}>{e.amount}</div>
+              <div style={{fontFamily:F.u,fontSize:12,color:C.inkMid,marginBottom:14}}>{e.label}</div>
+              <div style={{fontFamily:F.u,fontSize:13,color:C.inkMid,lineHeight:1.6}}>{e.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Why */}
+      <div style={{padding:"80px 24px",maxWidth:1000,margin:"0 auto",position:"relative",zIndex:1}}>
+        <div className="rv" style={{marginBottom:40}}>
+          <div style={{fontFamily:F.u,fontSize:10,fontWeight:700,letterSpacing:"0.15em",textTransform:"uppercase",color:C.teal,marginBottom:12}}>Why Luna Care</div>
+          <div style={{fontFamily:F.d,fontSize:"clamp(32px,5vw,50px)",fontWeight:600,color:C.ink,lineHeight:1.1}}>Built for <span style={{fontStyle:"italic",color:C.teal}}>Nigerian doctors.</span></div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:12}}>
+          {why.map((w,i)=>(
+            <div key={i} className={`wl-why rv`}>
+              <div style={{width:42,height:42,borderRadius:12,background:C.tealSoft,border:`1px solid ${C.tealMid}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{w.icon}</div>
+              <div>
+                <div style={{fontFamily:F.u,fontSize:13,fontWeight:600,color:C.ink,marginBottom:4}}>{w.title}</div>
+                <div style={{fontFamily:F.u,fontSize:11,color:C.inkMid,lineHeight:1.6}}>{w.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div style={{padding:"80px 24px",position:"relative",zIndex:1}}>
+        <div className="rv" style={{background:`linear-gradient(135deg,${C.tealSoft},${C.sageSoft})`,border:`1px solid ${C.tealMid}`,borderRadius:24,padding:"60px 40px",textAlign:"center",maxWidth:700,margin:"0 auto"}}>
+          <div style={{fontFamily:F.u,fontSize:10,fontWeight:700,letterSpacing:"0.15em",textTransform:"uppercase",color:C.teal,marginBottom:16}}>Ready to join?</div>
+          <div style={{fontFamily:F.d,fontSize:"clamp(32px,5vw,50px)",fontWeight:600,color:C.ink,lineHeight:1.1,marginBottom:14}}>Start helping patients <span style={{fontStyle:"italic",color:C.teal}}>tonight.</span></div>
+          <p style={{fontFamily:F.u,fontSize:15,color:C.inkMid,marginBottom:36,lineHeight:1.6}}>Applications take 5 minutes. Review takes 48 hours.</p>
+          <button onClick={onRegister} style={{padding:"16px 40px",borderRadius:13,background:C.teal,color:"#080B10",fontFamily:F.u,fontSize:15,fontWeight:600,cursor:"pointer",border:"none"}}>Apply as a professional →</button>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div style={{borderTop:`1px solid ${C.border}`,padding:"28px 32px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12,position:"relative",zIndex:1}}>
+        <span style={{fontFamily:F.d,fontSize:16,color:C.inkMid}}>🌙 Luna Care</span>
+        <div style={{display:"flex",gap:20}}>
+          <a href="https://lunarcare.health" style={{fontFamily:F.u,fontSize:12,color:C.inkSoft,textDecoration:"none"}}>Patient App</a>
+          <a href="mailto:hello@lunarcare.health" style={{fontFamily:F.u,fontSize:12,color:C.inkSoft,textDecoration:"none"}}>Contact</a>
+        </div>
+        <span style={{fontFamily:F.u,fontSize:11,color:C.inkSoft}}>© 2026 Luna Care · NDPR Compliant</span>
       </div>
     </div>
   )
